@@ -1,6 +1,6 @@
-# RESTful API Base Controller Example
+# RESTful API Example
 
-This is an example of a base controller for building RESTful APIs in ASP.NET Core. It provides common functionality for resource retrieval, creation, updating, and authentication.
+An example RESTful APIs with a robust foundation that includes common functionality provided by the BaseController, featuring request ID generation, authentication handling, and security headers middleware.
 
 ## Overview
 
