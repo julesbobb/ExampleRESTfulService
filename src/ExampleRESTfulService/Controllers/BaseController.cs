@@ -14,7 +14,7 @@ namespace ExampleRESTfulService.Controllers;
 /// It includes methods for generating request IDs, creating resource locations, authenticating clients, and handling resource retrieval and creation.
 /// You can inherit from this class to implement your API controllers, leveraging the common functionality it provides.
 /// <para>
-/// PLEASE NOTE - The is an example class. Add the required logic for managing the request ID and authentification.
+/// PLEASE NOTE - The is an example class. Add the required logic for managing the request ID, location and authentification.
 /// </para>
 /// </remarks>
 public class BaseController : ControllerBase
@@ -239,9 +239,10 @@ public class BaseController : ControllerBase
     }
 
     /// <summary>
-    /// A generic PUT, PATCH or DELETE request that updates a resource using a specified resource update function and returns a response.
+    /// A generic PUT, PATCH, or DELETE request that updates a resource using a specified resource update function and returns a response.
     /// </summary>
     /// <typeparam name="T">The type of the resource to be updated.</typeparam>
+    /// <returns>
     /// Returns a successful response (200 OK) with the updated resource.
     /// Returns a BadRequest response (400 Bad Request) with an error message if an exception occurs or validation fails.
     /// </returns>
@@ -253,7 +254,7 @@ public class BaseController : ControllerBase
     /// <example>
     /// Example of usage:
     /// <code>
-    /// return UpdateResource(()=> _repo.UpdateWeatherForecastMethod(forecast));
+    /// return UpdateResource(() => _repo.UpdateWeatherForecastMethod(forecast));
     /// </code>
     /// </example>
     /// </remarks>    
