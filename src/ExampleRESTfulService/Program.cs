@@ -1,4 +1,6 @@
 using ExampleRESTfulService;
+using ExampleRESTfulService.Interfaces;
+using ExampleRESTfulService.Services;
 using Microsoft.OpenApi.Models;
 using System.Reflection;
 
@@ -20,6 +22,9 @@ builder.Services.AddSwaggerGen(c =>
     // Configure other Swagger options as needed
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "Your API", Version = "v1" });
 });
+
+builder.Services.AddScoped<IWeatherForecastRepository, WeatherForecastRepository>();
+builder.Services.AddScoped<IAuthentificationRepository, AuthentificationRepository>();
 
 var app = builder.Build();
 
@@ -52,3 +57,6 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+// Exposes the Program class for testing
+public partial class Program { }

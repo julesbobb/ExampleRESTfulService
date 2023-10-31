@@ -1,7 +1,8 @@
+using ExampleRESTfulService.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using System.Text;
-using System.Text.Json.Serialization;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace ExampleRESTfulService.Controllers;
 
@@ -20,14 +21,16 @@ public class BaseController : ControllerBase
 {
 
     private readonly IConfiguration _configuration;
+    private readonly IAuthentificationRepository _authentificationRepository;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="BaseController"/> class with the specified configuration.
     /// </summary>
     /// <param name="configuration">The configuration to be used by the controller.</param>
-    public BaseController(IConfiguration configuration)
+    public BaseController(IConfiguration configuration, IAuthentificationRepository authentificationRepository)
     {
         _configuration = configuration;
+        _authentificationRepository = authentificationRepository;
     }
 
     /// <summary>
@@ -56,7 +59,11 @@ public class BaseController : ControllerBase
     private string GenerateLocation()
     {
         // Generate the resourceLocation dynamically, for example, based on the request context.
-        string resourceLocation = HttpContext.Request.Path;
+        // TODO create location containing the relative path of the newly created resource. 
+        // example:
+        var locationID = Guid.NewGuid().ToString();
+
+        string resourceLocation = $"{HttpContext.Request.Path}/{locationID}";
         // Set the Location header with the provided resourceLocation.
         Response.Headers.Add("Location", resourceLocation);
         return resourceLocation;
@@ -77,45 +84,13 @@ public class BaseController : ControllerBase
     /// </remarks>
     private IActionResult? Authenticate()
     {
-        // Check if the client is authenticated
-        if (!IsAuthorised())
+        if (!_authentificationRepository.IsAuthenticated(Request))
         {
             // Return a 401 Unauthorized response with the required authentication method.
-            return UnauthorizedWithAuthenticateHeader("Bearer", "YourRealm");
+            return Unauthorized();
+
         }
-
-
         return null;
-    }
-
-    /// <summary>
-    /// Checks if the client is authorized and enforces authorization requirements.
-    /// </summary>
-    /// <returns>
-    /// Returns a Boolean value indicating whether the client is authorized.
-    /// </returns>
-    /// <remarks>
-    /// This method verifies if the client is authorized to access the requested resource.
-    /// Implement your security checks here, such as authorization or resource access control.
-    /// <example>
-    /// Example of usage:
-    /// <code>
-    /// bool isAuthorized = IsAuthorised();
-    /// if (isAuthorized)
-    /// {
-    ///     // Perform authorized actions.
-    /// }
-    /// else
-    /// {
-    ///     // Handle unauthorized access.
-    /// }
-    /// </code>
-    /// </example>
-    /// </remarks>
-    private bool IsAuthorised()
-    {
-        // Perform security checks here, e.g., authorization or resource access control.
-        return true;
     }
 
     /// <summary>
@@ -143,6 +118,7 @@ public class BaseController : ControllerBase
     {
         try
         {
+            ApplyCommonResponseHeaders();
             var authentication = Authenticate();
             if (authentication != null)
             {
@@ -154,7 +130,6 @@ public class BaseController : ControllerBase
             {
                 return payloadCheck;
             }
-            GenerateLocation();
             GenerateRequestId();
             return Ok(resource);
         }
@@ -238,54 +213,37 @@ public class BaseController : ControllerBase
     }
 
     /// <summary>
-    /// Validates a resource using a custom validation function and returns an Unprocessable Entity response if validation fails.
+    /// Returns an Unprocessable Entity (422) response with a custom error message.
+    /// An "Authenticate" header is added to the response, and a unique request ID is generated.
     /// </summary>
-    /// <typeparam name="T">The type of the resource to be validated.</typeparam>
-    /// <param name="resource">The resource to validate.</param>
-    /// <param name="validateResourceFunc">A function that performs validation and returns a validation result.</param>
-    /// <returns>
-    /// Returns an Unprocessable Entity (422 Unprocessable Entity) response with the provided validation message if validation fails.
-    /// Returns null if validation passes.
-    /// </returns>
-    /// <remarks>
-    /// This method allows you to perform custom validation on the provided resource using the validation function.
-    /// If the validation function returns a result indicating failure, this method returns an Unprocessable Entity response with the specified validation message.
-    /// <example>
-    /// Example of usage:
-    /// <code>
-    /// var validationResult = Validate(resource, resource => ValidateResource(resource));
-    /// if (validationResult != null)
-    /// {
-    ///     return validationResult;
-    /// }
-    /// // Continue with processing the validated resource.
-    /// </code>
-    /// </example>
-    /// </remarks>
-    private IActionResult? Validate<T>(T resource,  Func<T, (bool Pass, string Message)> validateResourceFunc)
+    /// <param name="message">The custom error message to include in the response.</param>
+    /// <returns>An <see cref="IActionResult"/> representing an Unprocessable Entity response.</returns>
+    internal IActionResult CustomUnprocessableEntity(string message)
     {
-        if (validateResourceFunc != null)
-        {
-            var validationResult = validateResourceFunc(resource);
-            if (!validationResult.Pass)
-            {
-                // Return a 422 Unprocessable Entity response with the validation message.
-                return UnprocessableEntity(validationResult.Message);
-            }
-        }
-        return null;
+        ApplyCommonResponseHeaders();
+        GenerateRequestId();
+        return UnprocessableEntity(message);
     }
 
     /// <summary>
-    /// A generic PUT or PATCH request that updates a resource using a specified resource update function and returns a response.
+    /// Returns a 500 Internal Server Error response with a custom error message.
+    /// An "Authenticate" header is added to the response, and a unique request ID is generated.
+    /// </summary>
+    /// <param name="message">The custom error message to include in the response.</param>
+    /// <returns>An <see cref="IActionResult"/> representing an Unprocessable Entity response.</returns>
+    internal IActionResult CustomInternalServerError(string message)
+    {
+        ApplyCommonResponseHeaders();
+        GenerateRequestId();
+        return StatusCode(500, "An error occurred: " + message);
+    }
+
+    /// <summary>
+    /// A generic PUT, PATCH or DELETE request that updates a resource using a specified resource update function and returns a response.
     /// </summary>
     /// <typeparam name="T">The type of the resource to be updated.</typeparam>
-    /// <param name="updateResourceFunc">A function that updates the resource.</param>
-    /// <param name="validateResourceFunc">An optional function that validates the updated resource.</param>
-    /// <returns>
     /// Returns a successful response (200 OK) with the updated resource.
     /// Returns a BadRequest response (400 Bad Request) with an error message if an exception occurs or validation fails.
-    /// Returns an Unprocessable Entity response (422 Unprocessable Entity) with a validation message if validation fails.
     /// </returns>
     /// <remarks>
     /// This method authenticates the client, updates a resource using the provided function,
@@ -295,20 +253,21 @@ public class BaseController : ControllerBase
     /// <example>
     /// Example of usage:
     /// <code>
-    /// var resourceResponse = UpdateResource(() => UpdateResourceInDatabase(), resource => ValidateResource(resource));
-    /// return resourceResponse;
+    /// return UpdateResource(()=> _repo.UpdateWeatherForecastMethod(forecast));
     /// </code>
     /// </example>
     /// </remarks>    
-    protected IActionResult UpdateResource<T>(Func<T> updateResourceFunc, Func<T, (bool Pass, string Message)> validateResourceFunc = null)
+    protected IActionResult UpdateResource<T>(Func<T> updateResourceFunc)
     {
         try
         {
+            ApplyCommonResponseHeaders();
             var authentication = Authenticate();
             if (authentication != null)
             {
                 return authentication;
             }
+
             T resource = updateResourceFunc();
 
             if (resource == null)
@@ -317,28 +276,22 @@ public class BaseController : ControllerBase
                 return BadRequest("Failed to update the resource.");
             }
 
-            var validation = Validate(resource, validateResourceFunc);
-            if (validation != null)
-            {
-                return validation;
-            }
+            GenerateRequestId();
+            return Ok(resource);
 
-            return CreateResult(resource);
         }
         catch (Exception ex)
         {
             // Handle the exception and return a BadRequest response with an error message.
             return StatusCode(500, "An error occurred: " + ex.Message);
         }
-
     }
 
     /// <summary>
-    /// A generic PUT request that creates a resource using a specified resource creation function and returns a response.
+    /// A generic POST request that creates a resource using a specified resource creation function and returns a response.
     /// </summary>
     /// <typeparam name="T">The type of the resource to be created.</typeparam>
     /// <param name="createResourceFunc">A function that creates the resource.</param>
-    /// <param name="validateResourceFunc">An optional function that validates the created resource.</param>
     /// <returns>
     /// Returns a successful response (201 Created) with the newly created resource and its location.
     /// Returns a BadRequest response (400 Bad Request) with an error message if an exception occurs or validation fails.
@@ -352,33 +305,27 @@ public class BaseController : ControllerBase
     /// <example>
     /// Example of usage:
     /// <code>
-    /// var resourceResponse = CreateResource(() => CreateResourceInDatabase(), resource => ValidateResource(resource));
-    /// return resourceResponse;
+    /// return CreateResource(() =>  _repo.CreateWeatherForecastMethod(forecast));
     /// </code>
     /// </example>
     /// </remarks>    
-    protected IActionResult CreateResource<T>(Func<T> createResourceFunc, Func<T, (bool Pass, string Message)> validateResourceFunc = null)
+    protected IActionResult CreateResource<T>(Func<T> createResourceFunc)
     {
         try
         {
+            ApplyCommonResponseHeaders();
             var authentication = Authenticate();
             if (authentication != null)
             {
                 return authentication;
             }
 
-
             T resource = createResourceFunc();
+
             if (resource == null)
             {
                 // Return a 400 Bad Request response when the resource creation fails.
                 return BadRequest("Failed to create the resource.");
-            }
-
-            var validation = Validate(resource, validateResourceFunc);
-            if (validation != null)
-            {
-                return validation;
             }
 
             return CreateResult(resource);
@@ -402,13 +349,6 @@ public class BaseController : ControllerBase
     /// This method constructs a relative path to the newly created resource's location using the <see cref="GenerateLocation"/> method.
     /// It also adds a unique request ID to the response headers using the <see cref="GenerateRequestId"/> method.
     /// The response complies with RESTful API conventions and includes the newly created resource's location.
-    /// <example>
-    /// Example of usage:
-    /// <code>
-    /// var resourceResponse = CreateResult(newlyCreatedResource);
-    /// return resourceResponse;
-    /// </code>
-    /// </example>
     /// </remarks>
     private IActionResult CreateResult<T>(T resource)
     {
@@ -417,30 +357,68 @@ public class BaseController : ControllerBase
         return Created(new Uri(relativePath, UriKind.Relative), resource);
     }
 
-    /// <summary>
-    /// Returns a 401 Unauthorized response with the specified authentication method and realm.
-    /// </summary>
-    /// <param name="authenticationMethod">The authentication method required for access.</param>
-    /// <param name="realm">The realm for which authentication is required.</param>
-    /// <returns>
-    /// Returns a 401 Unauthorized response with the specified authentication method and realm in the WWW-Authenticate header.
-    /// </returns>
-    /// <remarks>
-    /// This method is used to enforce authentication requirements by returning a 401 Unauthorized response
-    /// with the specified authentication method and realm in the WWW-Authenticate header.
-    /// Clients can use this information to authenticate themselves for access.
-    /// <example>
-    /// Example of usage:
-    /// <code>
-    /// var unauthorizedResponse = UnauthorizedWithAuthenticateHeader("Bearer", "YourRealm");
-    /// return unauthorizedResponse;
-    /// </code>
-    /// </example>
-    /// </remarks>
-    private IActionResult UnauthorizedWithAuthenticateHeader(string authenticationMethod, string realm)
+
+    #region Common Headers
+
+    private void ApplyCommonResponseHeaders()
     {
-        // Return a 401 Unauthorized response with the required authentication method.
-        Response.Headers.Add("WWW-Authenticate", $"{authenticationMethod} realm=\"{realm}\"");
-        return Unauthorized();
+        AddAuthenticateHeader();
+        AddAccessControlAllowOriginHeader();
+        AddExpiresHeader();
+        AddFeaturePolicyHeader();
+        AddReferrerPolicyHeader();
     }
+
+    /// <summary>
+    /// Adds an "WWW-Authenticate" header to the HTTP response based on the configuration value.
+    /// This method is typically used to inform clients about the required authentication method.
+    /// </summary>
+    private void AddAuthenticateHeader()
+    {
+        string authenticateHeader = _configuration.GetValue<string>("AuthenticateHeader");
+        Response.Headers.Add("WWW-Authenticate", authenticateHeader);
+    }
+
+    /// <summary>
+    /// Adds the "Access-Control-Allow-Origin" header to the HTTP response, specifying which websites are allowed to access a resource through a web browser.
+    /// </summary>
+    private void AddAccessControlAllowOriginHeader()
+    {
+        string allowedOrigin = _configuration.GetValue<string>("AllowedOrigin");
+        Response.Headers.Add("Access-Control-Allow-Origin", allowedOrigin);
+    }
+
+    /// <summary>
+    /// Adds an "Expires" header to the HTTP response specifying the date and time after which the response is considered stale or no longer valid.
+    /// The date and time are expressed in RFC 5322 date and time format.
+    /// </summary>
+    private void AddExpiresHeader()
+    {
+        Response.Headers.Add("Expires", ExpiryDate.ToString("r"));
+    }
+
+    /// <summary>
+    /// Adds a "Feature-Policy" header to the HTTP response to define the features that are either permitted or prohibited for client-side code operating within your API's context.
+    /// For example, to deny all features, set the value to 'none'.
+    /// </summary>
+    private void AddFeaturePolicyHeader()
+    {
+        string featurePolicy = _configuration.GetValue<string>("FeaturePolicy");
+        Response.Headers.Add("Feature-Policy", featurePolicy);
+    }
+
+    /// <summary>
+    /// Adds a "Referrer-Policy" header to the HTTP response to determine the level of referrer information exposure.
+    /// For example, to prevent sending referrer information, set the value to 'no-referrer'.
+    /// </summary>
+    private void AddReferrerPolicyHeader()
+    {
+        string referrerPolicy = _configuration.GetValue<string>("ReferrerPolicy");
+        Response.Headers.Add("Referrer-Policy", referrerPolicy);
+    }
+
+    //TODO - Change to appropriate date
+    public DateTime ExpiryDate => DateTime.Now.AddMonths(6);
+    #endregion
+
 }

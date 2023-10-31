@@ -3,7 +3,7 @@ namespace ExampleRESTfulService;
 public class WeatherForecast
 {
     public int ID { get; set; }
-    public DateOnly Date { get; set; }
+    public DateTime Date { get; set; } = DateTime.Now;
 
     public int TemperatureC { get; set; }
 
