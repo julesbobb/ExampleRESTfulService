@@ -14,7 +14,7 @@ namespace ExampleRESTfulService.Controllers;
 /// It includes methods for generating request IDs, creating resource locations, authenticating clients, and handling resource retrieval and creation.
 /// You can inherit from this class to implement your API controllers, leveraging the common functionality it provides.
 /// <para>
-/// PLEASE NOTE - The is an example class. Add the required logic for managing the request ID, location and authentification.
+/// PLEASE NOTE - The is an example class. Add the required logic for managing the request ID, location and authentification (see TODO tasks).
 /// </para>
 /// </remarks>
 public class BaseController : ControllerBase
