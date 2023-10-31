@@ -41,3 +41,21 @@ public class WeatherForecastController : BaseController
 
 3. **Customize Security Headers Middleware**:
    - Customize the security headers middleware to meet your application's security requirements. The middleware provided sets headers like Content-Security-Policy, X-Content-Type-Options, X-Frame-Options, Strict-Transport-Security, and Cache-Control. Adjust the middleware settings in the `Configure` method of your Startup class to match your security needs.
+
+Example header
+```
+access-control-allow-origin: www.example-allowed-origin.com 
+cache-control: no-store,private,max-age=3600 
+content-security-policy: frame-ancestors 'none' 
+content-type: application/json; charset=utf-8 
+date: Tue,31 Oct 2023 16:01:15 GMT 
+expires: Tue,30 Apr 2024 16:01:16 GMT 
+feature-policy: Test Feature Policy 
+referrer-policy: Test Referrer Policy 
+request-id: 82ca3e12-ac01-41bd-b9a5-3e36cb4ef691 
+server: Kestrel 
+strict-transport-security: max-age=31536000; includeSubDomains 
+www-authenticate: Basic YWxhZGRpbjpvcGVuc2VzYW1l 
+x-content-type-options: nosniff 
+x-frame-options: SAMEORIGIN 
+```
