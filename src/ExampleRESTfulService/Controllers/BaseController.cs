@@ -43,7 +43,7 @@ public class BaseController : ControllerBase
     private void GenerateRequestId()
     {
         // Your logic to generate a request ID.
-        // Replace this with your actual request ID generation code e.g. store in a database.
+        // TODO Replace this with your actual request ID generation code e.g. store in a database.
         var requestID = Guid.NewGuid().ToString();
         Response.Headers.Add("Request-Id", requestID);
     }
@@ -59,7 +59,7 @@ public class BaseController : ControllerBase
     private string GenerateLocation()
     {
         // Generate the resourceLocation dynamically, for example, based on the request context.
-        // TODO create location containing the relative path of the newly created resource. 
+        // TODO Create location containing the relative path of the newly created resource. 
         // example:
         var locationID = Guid.NewGuid().ToString();
 
@@ -418,7 +418,7 @@ public class BaseController : ControllerBase
         Response.Headers.Add("Referrer-Policy", referrerPolicy);
     }
 
-    //TODO - Change to appropriate date
+    //TODO Add logic to create expiry data
     public DateTime ExpiryDate => DateTime.Now.AddMonths(6);
     #endregion
 

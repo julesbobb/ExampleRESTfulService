@@ -7,7 +7,7 @@ public class AuthentificationRepository : IAuthentificationRepository
 {
     public bool IsAuthenticated(HttpRequest request)
     {
-        // Perform security checks here, e.g., authorization or resource access control.
+        // TODO Perform security checks here, e.g., authorization or resource access control.
         return true;
     }
 }

@@ -41,7 +41,7 @@ if (app.Environment.IsDevelopment())
 }
 else
 {
-    app.UseExceptionHandler("/Home/Error"); //TODO
+    app.UseExceptionHandler("/Home/Error"); //TODO Add Error Page
     app.UseHsts();
 }
 
