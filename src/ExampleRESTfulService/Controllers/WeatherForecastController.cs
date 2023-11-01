@@ -1,5 +1,6 @@
 using ExampleRESTfulService.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using System.Text;
 
 namespace ExampleRESTfulService.Controllers;
 
@@ -37,7 +38,7 @@ public class WeatherForecastController : BaseController
     {
         try
         {
-            if (!_repo.PrimaryKeyExist(forecast.ID))
+            if (forecast.ID<0 || !_repo.PrimaryKeyExist(forecast.ID))
             {
                 // Return a 422 Unprocessable Entity response with the validation message.
                 return CustomBadRequest($"Cannot process. ID {forecast.ID} does not exist");
@@ -91,7 +92,7 @@ public class WeatherForecastController : BaseController
     {
         try
         {
-            if (!_repo.PrimaryKeyExist(id))
+            if (id < 0 || !_repo.PrimaryKeyExist(id))
             {
                 // Return a 422 Unprocessable Entity response with the validation message.
                 return CustomBadRequest($"Cannot process. ID {id} does not exist");
@@ -159,7 +160,162 @@ public class WeatherForecastController : BaseController
         }
         catch (Exception ex) { return CustomInternalServerError(ex.Message); }
 
-        return UpdateResource(() => _repo.DeleteForecastById(id), "forecast");
+        return DeleteResource(() => _repo.DeleteForecastById(id));
     }
 
+
+    #region Token-based paging 
+
+    /// <summary>
+    /// Get the first page of weather forecasts.
+    /// </summary>
+    /// <param name="pageSize">The number of items per page.</param>
+    /// <returns>The first page of weather forecasts.</returns>
+    /// <remarks>
+    /// <para>Example call:</para>
+    /// <example><code>GET /api/WeatherForecast/initial?pageSize=10</code></example>
+    /// </remarks>
+    [HttpGet("initial")]
+    public ActionResult<PagedResult<WeatherForecast>> GetInitialWeatherForecasts([FromQuery] int pageSize = 10)
+    {
+        try
+        {
+            if (pageSize <= 0 || pageSize > DefaultMaxPageSize) 
+            {
+                return (ActionResult)CustomBadRequest("Invalid pageSize value.");
+            }
+
+            int startIndex = 0; // Default to start from the beginning
+
+            var pageWeatherForecasts = _repo.GetAllWeatherForecasts().Skip(startIndex).Take(pageSize).ToList();
+            var nextToken = CreateToken(startIndex + pageWeatherForecasts.Count);
+
+            return (ActionResult)CustomOKResult(BuildResponse(pageWeatherForecasts, startIndex / pageSize, pageSize, pageWeatherForecasts.Count, nextToken));
+        }
+        catch (Exception ex)
+        {
+            return CustomStatusCode(500, "An error occurred: " + ex.Message);
+        }
+    }
+
+
+    /// <summary>
+    /// Get the next page of weather forecasts.
+    /// </summary>
+    /// <param name="token">The token for paging.</param>
+    /// <param name="pageSize">The number of items per page.</param>
+    /// <returns>The next page of weather forecasts.</returns>
+    /// <remarks>
+    /// <para>Example call:</para>
+    /// <example><code>GET /api/WeatherForecast/next?token=base64encodedtoken&amp;pageSize=10</code></example>
+    /// </remarks>    
+    [HttpGet("next")]
+    public ActionResult<PagedResult<WeatherForecast>> GetNextWeatherForecasts([FromQuery] string token, int pageSize = 10, int pageOffset = 1)
+    {
+        try
+        {
+            if (pageSize <= 0 || pageSize > DefaultMaxPageSize)
+            {
+                return (ActionResult)CustomBadRequest("Invalid pageSize value.");
+            }
+
+            int startIndex = ParseToken(token);
+            IEnumerable<WeatherForecast> forecast = _repo.GetAllWeatherForecasts();
+            startIndex = (pageOffset - 1) * pageSize;
+
+            if (startIndex >= forecast.Count())
+            {
+                return (ActionResult)CustomOKResult(new PagedResult<WeatherForecast>());
+            }
+
+            var pageWeatherForecasts = forecast.Skip(startIndex).Take(pageSize).ToList();
+            var nextToken = CreateToken(startIndex + pageWeatherForecasts.Count);
+
+            return (ActionResult)CustomOKResult(BuildResponse(pageWeatherForecasts, pageOffset, pageSize, pageWeatherForecasts.Count, nextToken));
+        }
+        catch (FormatException fex)
+        {
+            return (ActionResult)CustomBadRequest("Invalid token: " + fex.Message);
+        }
+        catch (Exception ex)
+        {
+            return CustomStatusCode(500, "An error occurred: " + ex.Message);
+        }
+    }
+
+    private int DefaultMaxPageSize => _configuration.GetValue<int>("maxPageSize");
+
+    private string CreateToken(int startIndex)
+    {
+        // Create a token that represents the current position
+        return Convert.ToBase64String(BitConverter.GetBytes(startIndex));
+    }
+
+    private int ParseToken(string token)
+    {
+        if (string.IsNullOrEmpty(token))
+        {
+            return 0; // Start from the beginning if no token is provided
+        }
+
+        byte[] bytes = Convert.FromBase64String(token);
+        return BitConverter.ToInt32(bytes, 0);
+    }
+
+    private object BuildResponse(List<WeatherForecast> data, int pageOffset, int pageSize, int total, string nextToken)
+    {
+        Dictionary<string, object> dataNode = new();
+        dataNode["forecasts"] = data;
+
+        var meta = new
+        {
+            pageOffset,
+            pageSize,
+            total,
+        };
+
+        var links = new List<LinkInfo>
+    {
+        new LinkInfo
+        {
+            Href = Url.Action("GetNextWeatherForecasts", "WeatherForecast", new { token = nextToken, pageSize }, Request.Scheme),
+            Rel = "next"
+        }
+    };
+
+        return new
+        {
+            data = dataNode,
+            meta,
+            links
+        };
+    }
+
+
+    #endregion
+
+}
+
+public class PagedResult<T>
+{
+    public List<T> Data { get; set; }
+    public MetaInfo Meta { get; set; }
+
+    public PagedResult()
+    {
+        Data = new List<T>();
+        Meta = new MetaInfo();
+    }
+}
+public class LinkInfo
+{
+    public string Href { get; set; }
+    public string Rel { get; set; }
+}
+
+public class MetaInfo
+{
+    public int PageOffset { get; set; }
+    public int PageSize { get; set; }
+    public int Total { get; set; }
 }

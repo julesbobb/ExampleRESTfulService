@@ -25,7 +25,7 @@ public class WeatherForecastRepository : IWeatherForecastRepository
     {
         //return new List<WeatherForecast>();
 
-        return Enumerable.Range(1, 50).Select(index => new WeatherForecast
+        return Enumerable.Range(1, 100).Select(index => new WeatherForecast
         {
             ID = index,
             TemperatureC = Random.Shared.Next(-20, 55),
