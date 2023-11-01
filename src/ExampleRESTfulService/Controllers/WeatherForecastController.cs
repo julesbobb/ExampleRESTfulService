@@ -37,6 +37,12 @@ public class WeatherForecastController : BaseController
     {
         try
         {
+            if (!_repo.PrimaryKeyExist(forecast.ID))
+            {
+                // Return a 422 Unprocessable Entity response with the validation message.
+                return CustomBadRequest($"Cannot process. ID {forecast.ID} does not exist");
+            }
+
             var (Pass, Message) = _repo.ValidateWeatherForecast(forecast);
             if (!Pass)
             {
@@ -46,7 +52,7 @@ public class WeatherForecastController : BaseController
         catch (Exception ex) { return CustomInternalServerError(ex.Message); }
 
         // Call the generic UpdateResource method to handle the common logic. 
-        return UpdateResource(()=> _repo.UpdateWeatherForecastMethod(forecast));
+        return UpdateResource(()=> _repo.UpdateWeatherForecastMethod(forecast), "forecast");
     }
 
     /// <summary>
@@ -85,17 +91,16 @@ public class WeatherForecastController : BaseController
     {
         try
         {
-            var (Pass, Message) = _repo.IsValidSummary(id, summary);
-            if (!Pass)
+            if (!_repo.PrimaryKeyExist(id))
             {
                 // Return a 422 Unprocessable Entity response with the validation message.
-                return CustomUnprocessableEntity(Message);
+                return CustomBadRequest($"Cannot process. ID {id} does not exist");
             }
         }
         catch (Exception ex) { return CustomInternalServerError(ex.Message); }
 
         // Call the generic UpdateResource method to handle the common logic. 
-        return UpdateResource(() => _repo.UpdateWeatherForecastMethod(id, summary));
+        return UpdateResource(() => _repo.UpdateWeatherForecastMethod(id, summary), "forecast");
     }
 
     /// <summary>
@@ -107,7 +112,19 @@ public class WeatherForecastController : BaseController
     [Route("all-weather")]
     public IActionResult GetAllWeatherForecasts()
     {
-        return GetResource(_repo.GetAllWeatherForecasts);
+        return GetResource(_repo.GetAllWeatherForecasts,  "forecasts");
+    }
+
+    /// <summary>
+    /// Retrieves all weather forecasts.
+    /// This endpoint is accessible via an HTTP GET request and returns a collection of all available weather forecasts.
+    /// </summary>
+    /// <returns>An <see cref="IActionResult"/> containing a collection of weather forecasts.</returns>
+    [HttpGet]
+    [Route("{id}")]
+    public IActionResult Get(int id)
+    {
+        return GetResource(() => _repo.GetForecast(id), "forecast");
     }
 
     /// <summary>
@@ -120,7 +137,7 @@ public class WeatherForecastController : BaseController
     [Route("GetSummaryForecasts/{summary}")]
     public IActionResult GetSummaryForecasts(string summary)
     {
-        return GetResource(() => _repo.GetSummaryWeatherForecastsData(summary));
+        return GetResource(() => _repo.GetSummaryWeatherForecastsData(summary), "forecasts");
     }
 
     /// <summary>
@@ -129,7 +146,7 @@ public class WeatherForecastController : BaseController
     /// </summary>
     /// <param name="id">The unique identifier of the resource to be deleted.</param>
     /// <returns>An <see cref="IActionResult"/> indicating the result of the deletion operation.</returns>
-    [HttpDelete("DeleteForecast/{id}")]
+    [HttpDelete("{id}")]
     public IActionResult DeleteForecast(int id)
     {
         try
@@ -137,12 +154,12 @@ public class WeatherForecastController : BaseController
             if (!_repo.PrimaryKeyExist(id))
             {
                 // Return a 422 Unprocessable Entity response with the validation message.
-                return CustomUnprocessableEntity($"Cannot process. ID {id} does not exist");
+                return CustomBadRequest($"Cannot process. ID {id} does not exist");
             }
         }
         catch (Exception ex) { return CustomInternalServerError(ex.Message); }
 
-        return UpdateResource(() => _repo.DeleteForecastById(id));
+        return UpdateResource(() => _repo.DeleteForecastById(id), "forecast");
     }
 
 }

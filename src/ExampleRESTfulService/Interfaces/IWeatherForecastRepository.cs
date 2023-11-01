@@ -2,7 +2,7 @@
 
 public interface IWeatherForecastRepository
 {
-    WeatherForecast UpdateWeatherForecastMethod(int id, string summary);
+    WeatherForecast? UpdateWeatherForecastMethod(int id, string summary);
     WeatherForecast UpdateWeatherForecastMethod(WeatherForecast forecast);
     (bool Pass, string Message) IsValidSummary(int id, string summary);
 
@@ -12,4 +12,5 @@ public interface IWeatherForecastRepository
     bool PrimaryKeyExist(int id);
     IEnumerable<WeatherForecast> GetAllWeatherForecasts();
     WeatherForecast CreateWeatherForecastMethod(WeatherForecast weatherForecast);
+    WeatherForecast? GetForecast(int id);
 }

@@ -1,5 +1,6 @@
 using ExampleRESTfulService.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using System.Collections;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -114,7 +115,7 @@ public class BaseController : ControllerBase
     /// </code>
     /// </example>
     /// </remarks>
-    protected IActionResult GetResource<T>(Func<T> getResourceFunc)
+    protected IActionResult GetResource<T>(Func<T> getResourceFunc, string nodeName)
     {
         try
         {
@@ -125,13 +126,41 @@ public class BaseController : ControllerBase
                 return authentication;
             }
             T resource = getResourceFunc();
+
+            if (resource == null)
+            {
+                return NoContent();
+            }
+
             var payloadCheck = CheckPayloadSize(resource);
             if (payloadCheck != null)
             {
                 return payloadCheck;
             }
             GenerateRequestId();
-            return Ok(resource);
+
+            Dictionary<string, object> dataNode = new();
+
+            if (resource is Array resourceArray)
+            {
+                dataNode[nodeName] = resourceArray;
+            }
+            else if (resource is T singleResource)
+            {
+                dataNode[nodeName] = singleResource;
+            }
+            else
+            {
+                // Handle other resource types as needed
+                return NotFound();
+            }
+
+            var response = new
+            {
+                data = dataNode
+            };
+
+            return Ok(response);
         }
         catch (Exception ex)
         {
@@ -213,6 +242,20 @@ public class BaseController : ControllerBase
     }
 
     /// <summary>
+    /// Returns an Bad Request (404) response with a custom error message.
+    /// An "Authenticate" header is added to the response, and a unique request ID is generated.
+    /// </summary>
+    /// <param name="message">The custom error message to include in the response.</param>
+    /// <returns>An <see cref="IActionResult"/> representing an BadRequest response.</returns>
+    internal IActionResult CustomBadRequest(string message)
+    {
+        ApplyCommonResponseHeaders();
+        GenerateRequestId();
+        return BadRequest(message);
+    }
+
+
+    /// <summary>
     /// Returns an Unprocessable Entity (422) response with a custom error message.
     /// An "Authenticate" header is added to the response, and a unique request ID is generated.
     /// </summary>
@@ -258,7 +301,7 @@ public class BaseController : ControllerBase
     /// </code>
     /// </example>
     /// </remarks>    
-    protected IActionResult UpdateResource<T>(Func<T> updateResourceFunc)
+    protected IActionResult UpdateResource<T>(Func<T> updateResourceFunc, string nodeName)
     {
         try
         {
@@ -278,7 +321,29 @@ public class BaseController : ControllerBase
             }
 
             GenerateRequestId();
-            return Ok(resource);
+
+            Dictionary<string, object> dataNode = new();
+
+            if (resource is Array resourceArray)
+            {
+                dataNode[nodeName] = resourceArray;
+            }
+            else if (resource is T singleResource)
+            {
+                dataNode[nodeName] = singleResource;
+            }
+            else
+            {
+                // Handle other resource types as needed
+                return NotFound();
+            }
+
+            var response = new
+            {
+                data = dataNode
+            };
+
+            return Accepted(response);
 
         }
         catch (Exception ex)

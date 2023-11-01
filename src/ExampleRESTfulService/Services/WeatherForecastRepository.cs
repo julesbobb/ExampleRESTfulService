@@ -23,6 +23,8 @@ public class WeatherForecastRepository : IWeatherForecastRepository
 
     public IEnumerable<WeatherForecast> GetAllWeatherForecasts()
     {
+        //return new List<WeatherForecast>();
+
         return Enumerable.Range(1, 50).Select(index => new WeatherForecast
         {
             ID = index,
@@ -52,10 +54,16 @@ public class WeatherForecastRepository : IWeatherForecastRepository
         return (true, ""); // Adjust the validation result as needed.
     }
 
-    public WeatherForecast UpdateWeatherForecastMethod(int id, string summary)
+    public WeatherForecast? UpdateWeatherForecastMethod(int id, string summary)
     {
+        WeatherForecast item = GetAllWeatherForecasts().FirstOrDefault(x => x.ID == id);
+        if (item != null)
+        {
+            item.Summary = summary;
+        }
+
         // update summary and return the model
-        return new WeatherForecast(); //replace with update logic
+        return item; //replace with update logic
     }
 
     public WeatherForecast UpdateWeatherForecastMethod(WeatherForecast forecast)
@@ -87,5 +95,10 @@ public class WeatherForecastRepository : IWeatherForecastRepository
     public bool PrimaryKeyExist(int id)
     {
         return GetAllWeatherForecasts().Any(x => x.ID == id);
+    }
+
+    public WeatherForecast? GetForecast(int id)
+    {
+        return GetAllWeatherForecasts().FirstOrDefault(x => x.ID == id);
     }
 }
