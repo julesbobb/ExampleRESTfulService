@@ -61,7 +61,7 @@ internal class ExceptionHandlingTests
     public async Task DeleteForecastById_ThrowsException_ReturnsInternalServerError()
     {
         // Act
-        var response = await TestHttpClient().DeleteAsync("/WeatherForecast/DeleteForecast/2");
+        var response = await TestHttpClient().DeleteAsync("/WeatherForecast/2");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
@@ -73,7 +73,7 @@ internal class ExceptionHandlingTests
     public async Task PrimaryKeyExist_ThrowsException_ReturnsInternalServerError()
     {
         // Act
-        var response = await TestHttpClient().DeleteAsync("/WeatherForecast/DeleteForecast/2");
+        var response = await TestHttpClient().DeleteAsync("/WeatherForecast/2");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
@@ -85,7 +85,7 @@ internal class ExceptionHandlingTests
     public async Task PrimaryKeyDoesNotExist_ThrowsException_ReturnsInternalServerError()
     {
         // Act
-        var response = await TestHttpClient(false).DeleteAsync("/WeatherForecast/DeleteForecast/2");
+        var response = await TestHttpClient(false).DeleteAsync("/WeatherForecast/2");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.InternalServerError);

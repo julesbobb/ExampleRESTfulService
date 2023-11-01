@@ -26,13 +26,6 @@ internal class PayloadSizeTests
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var responseContent = await response.Content.ReadAsStringAsync();
-
-        // Deserialize the response content to check if it's a WeatherForecast list
-        var deserializedForecast = JsonConvert.DeserializeObject<List<WeatherForecast>>(responseContent);
-
-        // Now you can assert properties of the deserialized object
-        deserializedForecast.Should().NotBeNull();
     }
 
     /// <summary>

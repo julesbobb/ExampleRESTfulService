@@ -1,7 +1,8 @@
-﻿using FluentAssertions;
-using Newtonsoft.Json;
+﻿using ExampleRESTfulService.Controllers;
+using FluentAssertions;
 using System.Net;
 using System.Text;
+using System.Text.Json;
 
 namespace ExampleRESTfulService.Tests;
 
@@ -20,7 +21,7 @@ internal class WeatherControllerReponseTests : TestBase
     {
         // Arrange
         var forecast = new WeatherForecast { TemperatureC = -10 };
-        string json = JsonConvert.SerializeObject(forecast);
+        string json = JsonSerializer.Serialize(forecast);
         var content = new StringContent(json, Encoding.UTF8, "application/json");
 
         // Act
@@ -31,7 +32,7 @@ internal class WeatherControllerReponseTests : TestBase
         var responseContent = await response.Content.ReadAsStringAsync();
 
         // Deserialize the response content to check if it's a WeatherForecast
-        var deserializedForecast = JsonConvert.DeserializeObject<WeatherForecast>(responseContent);
+        var deserializedForecast = JsonSerializer.Deserialize<WeatherForecast>(responseContent);
 
         // Now you can assert properties of the deserialized object
         deserializedForecast.Should().NotBeNull();
@@ -47,9 +48,9 @@ internal class WeatherControllerReponseTests : TestBase
         var response = await Client.PatchAsync("/WeatherForecast/UpdateWeatherSummary/-23/summary", null);
 
         // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         var responseContent = await response.Content.ReadAsStringAsync();
-        responseContent.Should().Be("ID must be a non-negative value.");
+        responseContent.Should().Be("Cannot process. ID -23 does not exist");
     }
 
     /// <summary>
@@ -59,10 +60,10 @@ internal class WeatherControllerReponseTests : TestBase
     public async Task DeleteForecast_ValidID_ReturnsOk()
     {
         // Act
-        var response = await Client.DeleteAsync("/WeatherForecast/DeleteForecast/1");
+        var response = await Client.DeleteAsync("/WeatherForecast/1");
 
         // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.StatusCode.Should().Be(HttpStatusCode.Accepted);
         var responseContent = await response.Content.ReadAsStringAsync();
         var expectedContent = "true"; // Replace with your expected content
         responseContent.Should().Be(expectedContent);
@@ -76,10 +77,10 @@ internal class WeatherControllerReponseTests : TestBase
     {
         // Act
         int id = 1000;
-        var response = await Client.DeleteAsync($"/WeatherForecast/DeleteForecast/{id}");
+        var response = await Client.DeleteAsync($"/WeatherForecast/{id}");
 
         // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         var responseContent = await response.Content.ReadAsStringAsync();
         responseContent.Should().Be($"Cannot process. ID {id} does not exist");
     }
@@ -91,8 +92,8 @@ internal class WeatherControllerReponseTests : TestBase
     public async Task ValidateWeatherForecast_TemperatureTooLow_ReturnsUnprocessableEntity()
     {
         // Arrange
-        var forecast = new WeatherForecast { TemperatureC = -100};
-        var content = new StringContent(JsonConvert.SerializeObject(forecast), Encoding.UTF8, "application/json");
+        var forecast = new WeatherForecast { ID = 23, TemperatureC = -100};
+        var content = new StringContent(JsonSerializer.Serialize(forecast), Encoding.UTF8, "application/json");
 
         // Act
         var response = await Client.PutAsync("/WeatherForecast", content);
@@ -110,8 +111,8 @@ internal class WeatherControllerReponseTests : TestBase
     public async Task ValidateWeatherForecast_TemperatureTooHigh_ReturnsUnprocessableEntity()
     {
         // Arrange
-        var forecast = new WeatherForecast { TemperatureC = 100 };
-        var content = new StringContent(JsonConvert.SerializeObject(forecast), Encoding.UTF8, "application/json");
+        var forecast = new WeatherForecast {ID = 23, TemperatureC = 100 };
+        var content = new StringContent(JsonSerializer.Serialize(forecast), Encoding.UTF8, "application/json");
 
         // Act
         var response = await Client.PutAsync("WeatherForecast/", content);
@@ -129,21 +130,20 @@ internal class WeatherControllerReponseTests : TestBase
     public async Task UpdateWeather_ValidTemperature_ReturnsOk()
     {
         // Arrange
-        var forecast = new WeatherForecast { TemperatureC = 25 };
-        var content = new StringContent(JsonConvert.SerializeObject(forecast), Encoding.UTF8, "application/json");
+        var forecast = new WeatherForecast {ID = 23, TemperatureC = 25 };
+        var content = new StringContent(JsonSerializer.Serialize(forecast), Encoding.UTF8, "application/json");
 
         // Act
         var response = await Client.PutAsync("/WeatherForecast", content);
 
         // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.StatusCode.Should().Be(HttpStatusCode.Accepted);
         var responseContent = await response.Content.ReadAsStringAsync();
 
         // Deserialize the response content to check if it's a WeatherForecast
-        var deserializedForecast = JsonConvert.DeserializeObject<WeatherForecast>(responseContent);
+        var deserializedForecast = JsonSerializer.Deserialize<WeatherForecast>(responseContent);
 
         // Now you can assert properties of the deserialized object
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
         deserializedForecast.Should().NotBeNull();
     }
 }

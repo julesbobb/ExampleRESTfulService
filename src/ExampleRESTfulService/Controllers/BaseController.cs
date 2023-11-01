@@ -1,5 +1,6 @@
 using ExampleRESTfulService.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using System.Collections;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -20,7 +21,7 @@ namespace ExampleRESTfulService.Controllers;
 public class BaseController : ControllerBase
 {
 
-    private readonly IConfiguration _configuration;
+    protected readonly IConfiguration _configuration;
     private readonly IAuthentificationRepository _authentificationRepository;
 
     /// <summary>
@@ -34,18 +35,15 @@ public class BaseController : ControllerBase
     }
 
     /// <summary>
-    /// Generates a unique request ID and adds it to the response headers.
+    /// Extracts the Request-ID and adds it to the header
     /// </summary>
-    /// <remarks>
-    /// This method should be customized with your logic to generate a request ID.
-    /// For example, you might store request IDs in a database for tracking purposes.
-    /// </remarks>
-    private void GenerateRequestId()
+    private void AddRequestId()
     {
-        // Your logic to generate a request ID.
-        // TODO Replace this with your actual request ID generation code e.g. store in a database.
-        var requestID = Guid.NewGuid().ToString();
-        Response.Headers.Add("Request-Id", requestID);
+        if (HttpContext.Request.Headers.TryGetValue("Request-Id", out var requestIdValues))
+        {
+            string requestId = requestIdValues.FirstOrDefault();
+            Response.Headers.Add("Request-Id", requestId);
+        }
     }
 
     /// <summary>
@@ -114,7 +112,7 @@ public class BaseController : ControllerBase
     /// </code>
     /// </example>
     /// </remarks>
-    protected IActionResult GetResource<T>(Func<T> getResourceFunc)
+    protected IActionResult GetResource<T>(Func<T> getResourceFunc, string nodeName)
     {
         try
         {
@@ -125,13 +123,40 @@ public class BaseController : ControllerBase
                 return authentication;
             }
             T resource = getResourceFunc();
+
+            if (resource == null)
+            {
+                return NoContent();
+            }
+
             var payloadCheck = CheckPayloadSize(resource);
             if (payloadCheck != null)
             {
                 return payloadCheck;
             }
-            GenerateRequestId();
-            return Ok(resource);
+
+            Dictionary<string, object> dataNode = new();
+
+            if (resource is Array resourceArray)
+            {
+                dataNode[nodeName] = resourceArray;
+            }
+            else if (resource is T singleResource)
+            {
+                dataNode[nodeName] = singleResource;
+            }
+            else
+            {
+                // Handle other resource types as needed
+                return NotFound();
+            }
+
+            var response = new
+            {
+                data = dataNode
+            };
+
+            return Ok(response);
         }
         catch (Exception ex)
         {
@@ -213,6 +238,37 @@ public class BaseController : ControllerBase
     }
 
     /// <summary>
+    /// Returns an Bad Request (404) response with a custom error message.
+    /// An "Authenticate" header is added to the response, and a unique request ID is generated.
+    /// </summary>
+    /// <param name="message">The custom error message to include in the response.</param>
+    /// <returns>An <see cref="IActionResult"/> representing an BadRequest response.</returns>
+    internal IActionResult CustomBadRequest(string message)
+    {
+        ApplyCommonResponseHeaders();
+        return BadRequest(message);
+    }
+
+    internal ObjectResult CustomStatusCode(int code, string message)
+    {
+        ApplyCommonResponseHeaders();
+        return StatusCode(code, "An error occurred: " + message);
+    }
+
+
+    /// <summary>
+    /// Returns an Bad Request (404) response with a custom error message.
+    /// An "Authenticate" header is added to the response, and a unique request ID is generated.
+    /// </summary>
+    /// <returns>An <see cref="IActionResult"/> representing an BadRequest response.</returns>
+    internal IActionResult CustomOKResult(object resource)
+    {
+        ApplyCommonResponseHeaders();
+        return Ok(resource);
+    }
+
+
+    /// <summary>
     /// Returns an Unprocessable Entity (422) response with a custom error message.
     /// An "Authenticate" header is added to the response, and a unique request ID is generated.
     /// </summary>
@@ -221,7 +277,6 @@ public class BaseController : ControllerBase
     internal IActionResult CustomUnprocessableEntity(string message)
     {
         ApplyCommonResponseHeaders();
-        GenerateRequestId();
         return UnprocessableEntity(message);
     }
 
@@ -234,9 +289,43 @@ public class BaseController : ControllerBase
     internal IActionResult CustomInternalServerError(string message)
     {
         ApplyCommonResponseHeaders();
-        GenerateRequestId();
         return StatusCode(500, "An error occurred: " + message);
     }
+
+    /// <summary>
+    /// Deletes a resource based on the provided delete function and returns an appropriate response.
+    /// </summary>
+    /// <typeparam name="T">The type of the resource to be deleted.</typeparam>
+    /// <param name="deleteResourceFunc">A function that performs the resource deletion.</param>
+    /// <param name="nodeName">The name of the node for serialization purposes.</param>
+    /// <returns>
+    /// Returns an Accepted (202 Accepted) response if the resource is successfully deleted.
+    /// Returns a BadRequest (400 Bad Request) response with an error message if an exception occurs.
+    /// Returns a response with common headers applied, such as authentication and other response headers.
+    /// </returns>
+    protected IActionResult DeleteResource<T>(Func<T> deleteResourceFunc)
+    {
+        try
+        {
+            ApplyCommonResponseHeaders();
+            var authentication = Authenticate();
+            if (authentication != null)
+            {
+                return authentication;
+            }
+
+            T resource = deleteResourceFunc();
+
+            return Accepted(resource);
+
+        }
+        catch (Exception ex)
+        {
+            // Handle the exception and return a BadRequest response with an error message.
+            return StatusCode(500, "An error occurred: " + ex.Message);
+        }
+    }
+
 
     /// <summary>
     /// A generic PUT, PATCH, or DELETE request that updates a resource using a specified resource update function and returns a response.
@@ -258,7 +347,7 @@ public class BaseController : ControllerBase
     /// </code>
     /// </example>
     /// </remarks>    
-    protected IActionResult UpdateResource<T>(Func<T> updateResourceFunc)
+    protected IActionResult UpdateResource<T>(Func<T> updateResourceFunc, string nodeName)
     {
         try
         {
@@ -277,8 +366,28 @@ public class BaseController : ControllerBase
                 return BadRequest("Failed to update the resource.");
             }
 
-            GenerateRequestId();
-            return Ok(resource);
+            Dictionary<string, object> dataNode = new();
+
+            if (resource is Array resourceArray)
+            {
+                dataNode[nodeName] = resourceArray;
+            }
+            else if (resource is T singleResource)
+            {
+                dataNode[nodeName] = singleResource;
+            }
+            else
+            {
+                // Handle other resource types as needed
+                return NotFound();
+            }
+
+            var response = new
+            {
+                data = dataNode
+            };
+
+            return Accepted(response);
 
         }
         catch (Exception ex)
@@ -348,13 +457,13 @@ public class BaseController : ControllerBase
     /// </returns>
     /// <remarks>
     /// This method constructs a relative path to the newly created resource's location using the <see cref="GenerateLocation"/> method.
-    /// It also adds a unique request ID to the response headers using the <see cref="GenerateRequestId"/> method.
+    /// It also adds a unique request ID to the response headers using the <see cref="AddRequestId"/> method.
     /// The response complies with RESTful API conventions and includes the newly created resource's location.
     /// </remarks>
     private IActionResult CreateResult<T>(T resource)
     {
         string relativePath = GenerateLocation();
-        GenerateRequestId();
+        AddRequestId();
         return Created(new Uri(relativePath, UriKind.Relative), resource);
     }
 
@@ -368,6 +477,7 @@ public class BaseController : ControllerBase
         AddExpiresHeader();
         AddFeaturePolicyHeader();
         AddReferrerPolicyHeader();
+        AddRequestId();
     }
 
     /// <summary>
