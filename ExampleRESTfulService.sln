@@ -9,7 +9,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ExampleRESTfulService.Tests
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{E3E6EC1F-4F45-4FF1-AF77-E63969FBB88B}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{6BC310E8-64AC-4DF1-B84B-63C3F6BD8B8D}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "hello", "hello", "{6BC310E8-64AC-4DF1-B84B-63C3F6BD8B8D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
